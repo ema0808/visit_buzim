@@ -8,6 +8,7 @@ export type House = {
   has_pool: boolean
   price_per_night: number | null
   is_published: boolean
+  is_recommended: boolean
   created_at: string
 }
 

@@ -9,6 +9,7 @@ export default async function HomePage() {
     .from('houses')
     .select('*')
     .eq('is_published', true)
+    .eq('is_recommended', true)
     .order('created_at', { ascending: false })
 
   if (error) {
