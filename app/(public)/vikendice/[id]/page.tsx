@@ -4,6 +4,7 @@ import { t } from '@/lib/strings'
 import type { House, HousePhoto, UnavailableDate } from '@/lib/types'
 import AvailabilityChecker from './AvailabilityChecker'
 import Navbar from '@/components/Navbar'
+import PhotoGallery from '@/components/PhotoGallery'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -34,7 +35,6 @@ export default async function HousePage(props: Props) {
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 py-10">
 
-        {/* Title & badges */}
         <h1 className="text-3xl font-bold" style={{ color: '#1a3785' }}>
           {house.name}
         </h1>
@@ -67,22 +67,8 @@ export default async function HousePage(props: Props) {
           )}
         </div>
 
-        {/* Photos */}
-        {photoUrls.length > 0 && (
-          <div className="mt-6 grid gap-3 grid-cols-2">
-            {photoUrls.map((url, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={url}
-                alt={`${house.name} photo ${i + 1}`}
-                className="rounded-xl object-cover w-full aspect-video bg-gray-100"
-              />
-            ))}
-          </div>
-        )}
+        <PhotoGallery urls={photoUrls} houseName={house.name} />
 
-        {/* Description */}
         {house.description && (
           <div className="mt-8">
             <h2 className="text-lg font-semibold" style={{ color: '#1a3785' }}>
@@ -94,7 +80,6 @@ export default async function HousePage(props: Props) {
           </div>
         )}
 
-        {/* Availability */}
         <div className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <h2 className="text-lg font-semibold" style={{ color: '#1a3785' }}>
             {t.house.checkAvailability}
@@ -102,7 +87,6 @@ export default async function HousePage(props: Props) {
           <AvailabilityChecker houseId={house.id} unavailableDates={unavailableDates} />
         </div>
 
-        {/* How to book */}
         <div
           className="mt-6 rounded-2xl p-6 text-white"
           style={{ backgroundColor: '#1a3785' }}
