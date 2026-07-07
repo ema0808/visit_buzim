@@ -3,7 +3,11 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import { t } from '@/lib/strings'
 import type { House, HousePhoto } from '@/lib/types'
-import { saveHouse, uploadPhoto, deletePhoto } from '../actions'
+import { uploadPhoto, deletePhoto, addUnavailableDate, deleteUnavailableDate } from '../actions'
+import type { UnavailableDate } from '@/lib/types'
+import HouseEditForm from './HouseEditForm'
+import BookingCalendar from './BookingCalendar'
+import PhotoUploadForm from './PhotoUploadForm'
 
 type Props = { params: Promise<{ id: string }> }
 
@@ -17,9 +21,10 @@ export default async function EditHousePage(props: Props) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/prijava')
 
-  const [houseResult, photosResult] = await Promise.all([
+  const [houseResult, photosResult, datesResult] = await Promise.all([
     supabase.from('houses').select('*').eq('id', id).eq('owner_id', user.id).single(),
     supabase.from('house_photos').select('*').eq('house_id', id).order('sort_order'),
+    supabase.from('unavailable_dates').select('*').eq('house_id', id).order('start_date'),
   ])
 
   if (houseResult.error || !houseResult.data) notFound()
@@ -29,12 +34,14 @@ export default async function EditHousePage(props: Props) {
     ...p,
     url: supabase.storage.from('house-photos').getPublicUrl(p.storage_path).data.publicUrl,
   }))
+  const dates: UnavailableDate[] = datesResult.data ?? []
 
-  const saveHouseForThis = saveHouse.bind(null, id)
+  const now = new Date()
   const uploadPhotoForThis = uploadPhoto.bind(null, id)
+  const addDateForThis = addUnavailableDate.bind(null, id)
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-5xl">
       <div className="flex items-center gap-3 mb-8">
         <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">
           ← {t.owner.dashboard}
@@ -45,41 +52,13 @@ export default async function EditHousePage(props: Props) {
         </h1>
       </div>
 
-      {/* House info form */}
-      <form action={saveHouseForThis} className="bg-white rounded-2xl border border-gray-100 p-8 space-y-5">
-        <Field label={t.owner.houseName} name="name" defaultValue={house.name} required />
-        <Field label={t.owner.address} name="address" defaultValue={house.address ?? ''} />
-        <TextareaField label={t.owner.description} name="description" defaultValue={house.description ?? ''} />
-        <div className="grid grid-cols-2 gap-4">
-          <Field
-            label={t.owner.maxGuests}
-            name="max_guests"
-            type="number"
-            min={1}
-            defaultValue={house.max_guests ?? ''}
-          />
-          <Field
-            label={t.owner.pricePerNight}
-            name="price_per_night"
-            type="number"
-            min={0}
-            step={0.01}
-            defaultValue={house.price_per_night ?? ''}
-          />
+      <div className="flex gap-8 items-start">
+        <div className="flex-1 min-w-0">
+          <HouseEditForm house={house} />
         </div>
-        <CheckboxField label={t.owner.hasPool} name="has_pool" defaultChecked={house.has_pool} />
 
-        <button
-          type="submit"
-          className="w-full rounded-full py-2.5 font-semibold text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#1a3785' }}
-        >
-          {t.owner.save}
-        </button>
-      </form>
-
-      {/* Photos section */}
-      <div className="mt-8 bg-white rounded-2xl border border-gray-100 p-8">
+        {/* Photos section */}
+        <div className="w-72 shrink-0 bg-white rounded-2xl border border-gray-100 p-6">
         <h2 className="text-base font-semibold mb-5" style={{ color: '#1a3785' }}>
           {t.owner.photos}
         </h2>
@@ -98,7 +77,10 @@ export default async function EditHousePage(props: Props) {
                     alt=""
                     className="w-full aspect-square object-cover rounded-xl bg-gray-100"
                   />
-                  <form action={deleteForThis} className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <form
+                    action={deleteForThis}
+                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
                     <button
                       type="submit"
                       className="rounded-full px-3 py-1 text-xs font-semibold text-white shadow"
@@ -113,104 +95,98 @@ export default async function EditHousePage(props: Props) {
           </div>
         )}
 
-        {/* Upload form */}
-        <form action={uploadPhotoForThis} className="flex items-center gap-3">
-          <input
-            type="file"
-            name="photo"
-            accept="image/*"
-            required
-            className="text-sm text-gray-600 file:mr-3 file:rounded-full file:border-0 file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-white file:cursor-pointer"
-            style={{ '--file-bg': '#c8922a' } as React.CSSProperties}
-          />
+        <PhotoUploadForm action={uploadPhotoForThis} />
+        </div>
+      </div>
+
+      {/* Booked dates section */}
+      <div className="mt-8 bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 className="text-base font-semibold mb-5" style={{ color: '#1a3785' }}>
+          {t.owner.bookedDates}
+        </h2>
+
+        <BookingCalendar dates={dates} initialYear={now.getFullYear()} initialMonth={now.getMonth()} />
+
+        {dates.length === 0 ? (
+          <p className="text-sm text-gray-400 mb-5">{t.owner.noBookedDates}</p>
+        ) : (
+          <div className="space-y-2 mb-6">
+            {dates.map((d) => {
+              const deleteForThis = deleteUnavailableDate.bind(null, d.id, id)
+              const fmt = (s: string) =>
+                new Date(s + 'T00:00:00').toLocaleDateString('bs-BA', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })
+              return (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm font-medium text-gray-800">
+                      {fmt(d.start_date)} – {fmt(d.end_date)}
+                    </span>
+                    {d.note && (
+                      <span className="ml-2 text-sm text-gray-400">{d.note}</span>
+                    )}
+                  </div>
+                  <form action={deleteForThis}>
+                    <button
+                      type="submit"
+                      className="shrink-0 text-xs font-semibold text-red-500 hover:text-red-700 transition-colors"
+                    >
+                      {t.owner.deleteDate}
+                    </button>
+                  </form>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Add date range form */}
+        <form action={addDateForThis} className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500">{t.owner.dateFrom}</label>
+            <input
+              type="date"
+              name="start_date"
+              required
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': '#1a3785' } as React.CSSProperties}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500">{t.owner.dateTo}</label>
+            <input
+              type="date"
+              name="end_date"
+              required
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': '#1a3785' } as React.CSSProperties}
+            />
+          </div>
+          <div className="flex flex-col gap-1 flex-1 min-w-40">
+            <label className="text-xs font-medium text-gray-500">{t.owner.dateNote}</label>
+            <input
+              type="text"
+              name="note"
+              placeholder="npr. Porodica Ibrić"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent"
+              style={{ '--tw-ring-color': '#1a3785' } as React.CSSProperties}
+            />
+          </div>
           <button
             type="submit"
-            className="shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: '#c8922a' }}
+            className="rounded-full px-5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: '#1a3785' }}
           >
-            {t.owner.uploadPhoto}
+            + {t.owner.addBookedDate}
           </button>
         </form>
       </div>
     </div>
-  )
-}
-
-function Field({
-  label,
-  name,
-  type = 'text',
-  required,
-  defaultValue,
-  ...rest
-}: {
-  label: string
-  name: string
-  type?: string
-  required?: boolean
-  defaultValue?: string | number
-  [key: string]: unknown
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-gray-700">
-        {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
-      </label>
-      <input
-        type={type}
-        name={name}
-        required={required}
-        defaultValue={defaultValue}
-        className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent"
-        style={{ '--tw-ring-color': '#1a3785' } as React.CSSProperties}
-        {...(rest as React.InputHTMLAttributes<HTMLInputElement>)}
-      />
-    </div>
-  )
-}
-
-function TextareaField({
-  label,
-  name,
-  defaultValue,
-}: {
-  label: string
-  name: string
-  defaultValue?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <textarea
-        name={name}
-        rows={4}
-        defaultValue={defaultValue}
-        className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent resize-none"
-        style={{ '--tw-ring-color': '#1a3785' } as React.CSSProperties}
-      />
-    </div>
-  )
-}
-
-function CheckboxField({
-  label,
-  name,
-  defaultChecked,
-}: {
-  label: string
-  name: string
-  defaultChecked?: boolean
-}) {
-  return (
-    <label className="flex items-center gap-3 cursor-pointer">
-      <input
-        type="checkbox"
-        name={name}
-        defaultChecked={defaultChecked}
-        className="w-4 h-4 rounded accent-[#1a3785]"
-      />
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-    </label>
   )
 }

@@ -15,7 +15,16 @@ export async function createHouse(
   if (!user) redirect('/prijava')
 
   const name = String(formData.get('name') ?? '').trim()
+  const address = String(formData.get('address') ?? '').trim()
+  const maxGuests = formData.get('max_guests')
+  const pricePerNight = formData.get('price_per_night')
+  const description = String(formData.get('description') ?? '').trim()
+
   if (!name) return 'Naziv kuće je obavezan.'
+  if (!address) return 'Adresa je obavezna.'
+  if (!maxGuests) return 'Broj gostiju je obavezan.'
+  if (!pricePerNight) return 'Cijena je obavezna.'
+  if (!description) return 'Opis je obavezan.'
 
   // Ensure owners row exists — houses.owner_id has a FK to owners.id
   const { error: ownerError } = await supabase.from('owners').upsert(
@@ -37,13 +46,11 @@ export async function createHouse(
     .insert({
       owner_id: user.id,
       name,
-      description: (formData.get('description') as string) || null,
-      address: (formData.get('address') as string) || null,
-      max_guests: formData.get('max_guests') ? Number(formData.get('max_guests')) : null,
+      description,
+      address,
+      max_guests: Number(maxGuests),
       has_pool: formData.get('has_pool') === 'on',
-      price_per_night: formData.get('price_per_night')
-        ? Number(formData.get('price_per_night'))
-        : null,
+      price_per_night: Number(pricePerNight),
       is_published: false,
     })
     .select('id')
@@ -66,19 +73,22 @@ export async function saveHouse(houseId: string, formData: FormData) {
   if (!user) redirect('/prijava')
 
   const name = String(formData.get('name') ?? '').trim()
-  if (!name) return
+  const address = String(formData.get('address') ?? '').trim()
+  const maxGuests = formData.get('max_guests')
+  const pricePerNight = formData.get('price_per_night')
+  const description = String(formData.get('description') ?? '').trim()
+
+  if (!name || !address || !maxGuests || !pricePerNight || !description) return
 
   await supabase
     .from('houses')
     .update({
       name,
-      description: (formData.get('description') as string) || null,
-      address: (formData.get('address') as string) || null,
-      max_guests: formData.get('max_guests') ? Number(formData.get('max_guests')) : null,
+      description,
+      address,
+      max_guests: Number(maxGuests),
       has_pool: formData.get('has_pool') === 'on',
-      price_per_night: formData.get('price_per_night')
-        ? Number(formData.get('price_per_night'))
-        : null,
+      price_per_night: Number(pricePerNight),
     })
     .eq('id', houseId)
     .eq('owner_id', user.id)
@@ -130,6 +140,51 @@ export async function uploadPhoto(houseId: string, formData: FormData) {
     storage_path: path,
     sort_order: nextOrder,
   })
+
+  revalidatePath(`/dashboard/${houseId}`)
+  revalidatePath(`/vikendice/${houseId}`)
+}
+
+export async function addUnavailableDate(houseId: string, formData: FormData) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  const { data: house } = await supabase
+    .from('houses')
+    .select('id')
+    .eq('id', houseId)
+    .eq('owner_id', user.id)
+    .single()
+  if (!house) return
+
+  const startDate = formData.get('start_date') as string
+  const endDate = formData.get('end_date') as string
+  const note = (formData.get('note') as string) || null
+
+  if (!startDate || !endDate || endDate < startDate) return
+
+  await supabase.from('unavailable_dates').insert({
+    house_id: houseId,
+    start_date: startDate,
+    end_date: endDate,
+    note,
+  })
+
+  revalidatePath(`/dashboard/${houseId}`)
+  revalidatePath(`/vikendice/${houseId}`)
+}
+
+export async function deleteUnavailableDate(dateId: string, houseId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase.from('unavailable_dates').delete().eq('id', dateId)
 
   revalidatePath(`/dashboard/${houseId}`)
   revalidatePath(`/vikendice/${houseId}`)
