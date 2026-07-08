@@ -1,10 +1,11 @@
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 import { t } from '@/lib/strings'
 import type { House } from '@/lib/types'
 import HouseCard from '@/components/HouseCard'
 
 export default async function HomePage() {
+  const supabase = await createClient()
   const { data: houses, error } = await supabase
     .from('houses')
     .select('*')

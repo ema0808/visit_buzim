@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 import { t } from '@/lib/strings'
 import type { House, HousePhoto, UnavailableDate } from '@/lib/types'
 import AvailabilityChecker from './AvailabilityChecker'
@@ -10,6 +10,7 @@ type Props = { params: Promise<{ id: string }> }
 
 export default async function HousePage(props: Props) {
   const { id } = await props.params
+  const supabase = await createClient()
 
   const [houseResult, photosResult, unavailableResult] = await Promise.all([
     supabase.from('houses').select('*').eq('id', id).eq('is_published', true).single(),

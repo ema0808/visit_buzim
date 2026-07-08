@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 import { t } from '@/lib/strings'
 import type { House } from '@/lib/types'
 import Navbar from '@/components/Navbar'
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default async function VikendiceePage() {
+  const supabase = await createClient()
   const { data: houses, error } = await supabase
     .from('houses')
     .select('*')
