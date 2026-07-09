@@ -1,4 +1,4 @@
-# Posjeti Bužim 🏡
+# Posjeti Bužim
 
 A full-stack tourism and weekend-house booking platform for the town of Bužim, Bosnia and Herzegovina — built to help local property owners list their houses (with pools) and let visitors browse listings and check availability, supporting the municipality's tourism promotion efforts. This poject is live, with demo data, currenty in phase of getting first customers.
 
@@ -97,4 +97,4 @@ Built by [Ema](https://www.linkedin.com/in/ema-begulic-burzic/) — Android deve
 
 ## License
 
-
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
