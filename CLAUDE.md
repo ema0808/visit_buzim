@@ -104,9 +104,3 @@ select not exists (
 
 ## Coding conventions
 - **All user-facing strings must live in `lib/strings.ts`** and be referenced via the `t` object. Never hardcode visible text directly in components.
-
-## Open next steps (as of last session)
-- [ ] Wire up Next.js pages to fetch real house data from Supabase
-- [ ] Build owner login + "edit my house" flow using Supabase Auth
-- [ ] Implement the GitHub Actions Supabase backup job
-- [ ] Decide Vercel Hobby vs Pro before/at public launch with the mayor
